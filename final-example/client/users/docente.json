@@ -1,0 +1,8 @@
+{
+	"host": "localhost",
+	"username": "docente",
+	"password": "docente",
+	"port": 3306,
+	"database": "gestione-esami"
+}
+
