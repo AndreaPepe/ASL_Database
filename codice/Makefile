@@ -1,6 +1,6 @@
-main:
-	gcc main.c -o main `mysql_config --cflags --include --libs`
-main_extra:
-	gcc main.c -Wall -Wextra -o main `mysql_config --cflags --include --libs`
+all:
+	gcc *.c -o client `mysql_config --cflags --include --libs`
+all_extra:
+	gcc *.c -Wall -Wextra -o client `mysql_config --cflags --include --libs`
 clean:
-	-rm main
+	-rm client

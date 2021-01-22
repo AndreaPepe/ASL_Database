@@ -1,0 +1,7 @@
+{
+  "host": "localhost",
+  "username": "personaleCUP",
+  "password": "personaleCUP",
+  "port": 3306,
+  "database": "ASL_db"
+}
