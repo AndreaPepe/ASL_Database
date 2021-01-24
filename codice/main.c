@@ -136,8 +136,7 @@ int main(void){
       break;
 
     case PERSONALECUP:
-      //run_as_personaleCUP(conn);
-      printf("I'm here, %d\n", role);
+      run_as_personaleCUP(conn);
       break;
 
     case FAILED_LOGIN:
