@@ -22,7 +22,7 @@ static void add_patient(MYSQL *conn){
 	printf("\nCognome: ");
 	getInput(46, cognome, false);
 	printf("\nIndirizzo: ");
-	getInput(46, nome, false);
+	getInput(101, indirizzo, false);
 
 	printf("\nData di nascita [DD/MM/YYYY]");
 	printf("\nGiorno: ");
@@ -82,7 +82,6 @@ static void add_patient(MYSQL *conn){
 	// run procedure
 	if (mysql_stmt_execute(prep_stmt) != 0){
 		print_stmt_error(prep_stmt, "An error occurred while creating the new patient");
-		printf("%s\n", mysql_error(conn));
 	} else{
 		printf("The new patient has been created successfully\n");
 	}
