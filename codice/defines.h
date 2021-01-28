@@ -41,3 +41,6 @@ extern bool setup_prepared_stmt(MYSQL_STMT **stmt, char *statement, MYSQL *conn)
 /* run with different configurations */
 extern void run_as_amministratore(MYSQL *conn);
 extern void run_as_personaleCUP(MYSQL *conn);
+
+/* prepare output tables to be printed well */
+extern void dump_result_set(MYSQL *conn, MYSQL_STMT *stmt, char *title);

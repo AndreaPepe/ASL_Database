@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h>
 
 #include "defines.h"
 
@@ -237,6 +236,7 @@ static void crea_personale(MYSQL *conn){
 	MYSQL_BIND param[6];
 	bool is_null = true;
 
+
 	char local_options[3] = {'1', '2', '3'}; // possible roles
 	char r;
 
@@ -275,8 +275,9 @@ static void crea_personale(MYSQL *conn){
 	if (r == '3'){
 		printf("\nVoluntary association (optional): ");
 		getInput(46, associazione, false);
-		if (associazione != NULL)
+		if (strcmp(associazione, "") != 0){
 			is_null = false;
+		}
 	}
 
 	if(!setup_prepared_stmt(&p_stmt, "call add_personale_anagrafica (?, ?, ?, ?, ?, ?)", conn)){
@@ -307,8 +308,9 @@ static void crea_personale(MYSQL *conn){
 
 	param[5].buffer_type = MYSQL_TYPE_VAR_STRING;	// possible NULL parameter
 	param[5].buffer = associazione;
-	param[5].is_null = &is_null;
+	param[5].is_null = &(is_null);
 	param[5].buffer_length = strlen(associazione);
+
 
 
 	if(mysql_stmt_bind_param(p_stmt, param) != 0){
@@ -674,6 +676,116 @@ rep_exit:
 
 }
 
+//// SELECT ///////********************************
+
+static void select_personale_by_hosp(MYSQL *conn){
+
+	MYSQL_STMT *p_stmt;
+	MYSQL_BIND param[1];
+	int status;
+	char header[512];
+
+	char c_ospedale[46];
+	int ospedale;
+
+	printf("\nHospital (ID): ");
+	getInput(46, c_ospedale, false);
+
+	ospedale = atoi(c_ospedale);
+
+	if(!setup_prepared_stmt(&p_stmt, "call select_personale_by_hosp (?)", conn)){
+		finish_with_stmt_error(conn, p_stmt, "Unable to init 'select_personale_by_hosp' stmt\n", false);
+	}
+
+	memset(param, 0, sizeof(param));
+
+	param[0].buffer_type = MYSQL_TYPE_LONG;
+	param[0].buffer = &ospedale;
+	param[0].buffer_length = sizeof(ospedale);
+
+	if (mysql_stmt_bind_param(p_stmt, param) != 0){
+		finish_with_stmt_error(conn, p_stmt, "Could not bind parameters for 'select_personale_by_hosp' procedure\n", true);
+	}
+
+	if (mysql_stmt_execute(p_stmt) != 0){
+		print_stmt_error(p_stmt, "An error occurred during the execution of the query");
+		goto close;
+	}
+
+	sprintf (header, "\nStaff members working in hospital %d\n", ospedale);
+
+	do{
+		// dump result
+		dump_result_set(conn, p_stmt, header);
+
+		status = mysql_stmt_next_result(p_stmt);
+		if(status > 0){
+			finish_with_stmt_error(conn, p_stmt, "Unexpected condition", true);
+		}
+	}while(status == 0);
+
+close:
+	mysql_stmt_close(p_stmt);
+}
+
+
+static void select_personale_by_rep(MYSQL *conn){
+
+	MYSQL_STMT *p_stmt;
+	MYSQL_BIND param[2];
+	int status;
+	char header[512];
+
+	char c_ospedale[46], c_reparto[46];
+	int ospedale, reparto;
+
+	printf("\nHospital (ID): ");
+	getInput(46, c_ospedale, false);
+	printf("\nDepartment (ID): ");
+	getInput(46, c_reparto, false);
+
+	ospedale = atoi(c_ospedale);
+	reparto = atoi(c_reparto);
+
+	if(!setup_prepared_stmt(&p_stmt, "call select_personale_by_rep (?, ?)", conn)){
+		finish_with_stmt_error(conn, p_stmt, "Unable to init 'select_personale_by_rep' stmt\n", false);
+	}
+
+	memset(param, 0, sizeof(param));
+
+	param[0].buffer_type = MYSQL_TYPE_LONG;
+	param[0].buffer = &ospedale;
+	param[0].buffer_length = sizeof(ospedale);
+
+	param[1].buffer_type = MYSQL_TYPE_LONG;
+	param[1].buffer = &reparto;
+	param[1].buffer_length = sizeof(reparto);
+
+	if (mysql_stmt_bind_param(p_stmt, param) != 0){
+		finish_with_stmt_error(conn, p_stmt, "Could not bind parameters for 'select_personale_by_rep' procedure\n", true);
+	}
+
+	if (mysql_stmt_execute(p_stmt) != 0){
+		print_stmt_error(p_stmt, "An error occurred during the execution of the query");
+		goto close;
+	}
+
+	sprintf (header, "\nStaff members working in hospital %d\n", ospedale);
+
+	do{
+		// dump result
+		dump_result_set(conn, p_stmt, header);
+
+		status = mysql_stmt_next_result(p_stmt);
+		if(status > 0){
+			finish_with_stmt_error(conn, p_stmt, "Unexpected condition", true);
+		}
+	}while(status == 0);
+
+close:
+	mysql_stmt_close(p_stmt);
+}
+
 
 
 static void manage_exams(MYSQL *conn){
@@ -700,6 +812,7 @@ static void manage_exams(MYSQL *conn){
 				aggiungi_parametro_ad_esame(conn);
 				break;
 			case '4':
+				printf("\nPress 'Enter' to continue\n");
 				return;
 			default:
 				fprintf(stderr, "Invalid condition at %s:%d\n", __FILE__, __LINE__);
@@ -713,7 +826,7 @@ static void manage_exams(MYSQL *conn){
 
 static void manage_staff_members (MYSQL *conn){
 
-	char options[5] = {'1', '2', '3', '4', '5'};
+	char options[7] = {'1', '2', '3', '4', '5', '6', '7'};
 	char op;
 
 	while(true){	// while back option is selected
@@ -723,9 +836,11 @@ static void manage_staff_members (MYSQL *conn){
 		printf("2) Add work data to a staff member\n");
 		printf("3) Create new specialization\n");
 		printf("4) Assign specialization to a primary\n");
-		printf("5) Go back\n");
+		printf("5) Search staff members by hospital\n");
+		printf("6) Search staff members by department\n");
+		printf("7) Go back\n");
 
-		op = multiChoice("Select an option", options, 5);
+		op = multiChoice("Select an option", options, 7);
 		switch(op){
 			case '1':
 				crea_personale(conn);
@@ -740,6 +855,13 @@ static void manage_staff_members (MYSQL *conn){
 				assegna_specializzazione(conn);
 				break;
 			case '5':
+				select_personale_by_hosp(conn);
+				break;
+			case '6':
+				select_personale_by_rep(conn);
+				break;
+			case '7':
+				printf("\nPress 'Enter' to continue\n");
 				return;
 			default:
 				fprintf(stderr, "Invalid condition at %s:%d\n", __FILE__, __LINE__);
@@ -776,6 +898,7 @@ static void create_medical_structure (MYSQL *conn){
 				crea_reparto(conn);
 				break;
 			case '4':
+				printf("\nPress 'Enter' to continue\n");
 				return;
 			default:
 				fprintf(stderr, "Invalid condition at %s:%d\n", __FILE__, __LINE__);
@@ -824,7 +947,7 @@ void run_as_amministratore(MYSQL *conn){
 				break;
 
 			case '3':
-			manage_staff_members(conn);
+				manage_staff_members(conn);
 				break;
 
 			case '4':
