@@ -250,13 +250,16 @@ void dump_result_set(MYSQL *conn, MYSQL_STMT *stmt, char *title)
 
           case MYSQL_TYPE_TIME:         //added
             date = (MYSQL_TIME *)rs_bind[i].buffer;
-            printf(" %02d:%-*.02d |", date->hour, (int)fields[i].max_length - 3, date->minute);
+          //printf(" %02d:%-*.02d |", date->hour, (int)fields[i].max_length - 3, date->minute);
+            char time[6];
+            sprintf(time, "%02d:%02d", date->hour, date->minute);
+            printf(" %-*s |", (int)fields[i].max_length, time);
             break;
 
 					case MYSQL_TYPE_DATE:
 					case MYSQL_TYPE_TIMESTAMP:
 						date = (MYSQL_TIME *)rs_bind[i].buffer;
-						printf(" %d-%02d-%02d |", date->year, date->month, date->day);
+						printf(" %02d-%02d-%d |", date->day, date->month, date->year);  // modified to [DD-MM-YYYY] format
 						break;
 
 					case MYSQL_TYPE_STRING:

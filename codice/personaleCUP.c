@@ -136,7 +136,7 @@ retry:
 	}
 
 	if(yesOrNo("Con urgenza?", 'y', 'n', false, true))
-		strcpy(urgenza, "sì");
+		strcpy(urgenza, "si");
 	else
 		strcpy(urgenza, "no");
 
