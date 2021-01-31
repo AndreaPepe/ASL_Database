@@ -252,7 +252,7 @@ static void add_diagnosi(MYSQL *conn){
 	getInput(3, month, false);
 	printf("\nAnno: ");
 	getInput(5, year, false);
-	printf("\n Diagnosi (max 256 caratteri):\n");
+	printf("\nDiagnosi (max 256 caratteri):\n");
 	getInput(257, diagnosi, false);
 
 	examId = atoi (c_examId);
@@ -357,6 +357,536 @@ close:
 }
 
 
+
+static void add_email(MYSQL *conn){
+
+	MYSQL_STMT *prep_stmt;
+	MYSQL_BIND param[2];
+
+	char email[46], paziente[46];
+
+	printf("\nPaziente (tessera sanitaria): ");
+	getInput(46, paziente, false);
+	printf("\nEmail: ");
+	getInput(46, email, false);
+
+	if(!setup_prepared_stmt(&prep_stmt, "call aggiungi_email(?, ?)", conn)){
+		finish_with_stmt_error(conn, prep_stmt, "Unable to init 'aggiungi_email' stmt\n", false);
+	}
+
+	memset(param, 0, sizeof(param));
+
+	param[0].buffer_type = MYSQL_TYPE_VAR_STRING;
+	param[0].buffer = email;
+	param[0].buffer_length = strlen(email);
+
+	param[1].buffer_type = MYSQL_TYPE_VAR_STRING;
+	param[1].buffer = paziente;
+	param[1].buffer_length = strlen(paziente);
+
+	if(mysql_stmt_bind_param(prep_stmt, param) != 0){
+		finish_with_stmt_error(conn, prep_stmt, "Could not bind parameters for 'aggiungi_email' procedure\n", true);
+	}
+
+	if (mysql_stmt_execute(prep_stmt) != 0){
+		print_stmt_error(prep_stmt, "An error occurred during the operation");
+	} else{
+		printf("\nEmail assegnata correttamente\n");
+	}
+
+	mysql_stmt_close(prep_stmt);
+}
+
+
+static void add_telefono(MYSQL *conn){
+
+	MYSQL_STMT *prep_stmt;
+	MYSQL_BIND param[3];
+
+	char options[] = {'1', '2'};
+	char op;
+
+	char numero[46], paziente[46], tipo[46];
+
+	printf("\nPaziente (tessera sanitaria): ");
+	getInput(46, paziente, false);
+	printf("\nTipologia ");
+	printf("\n\t1) Cellulare");
+	printf("\n\t2) Fisso\n");
+
+	op = multiChoice("Seleziona tipologia di numero di telefono", options, 2);
+	switch(op){
+		case '1':
+			strcpy(tipo, "cellulare");
+			break;
+		case '2':
+			strcpy(tipo, "fisso");
+			break;
+		default:
+			fprintf(stderr, "Invalid condition at %s: %d\n", __FILE__, __LINE__);
+			abort();
+	}
+
+	printf("\nNumero di telefono: ");
+	getInput(46, numero, false);
+
+	if(!setup_prepared_stmt(&prep_stmt, "call aggiungi_recapito_tel(?, ?, ?)", conn)){
+		finish_with_stmt_error(conn, prep_stmt, "Unable to init 'aggiungi_recapito_tel' stmt\n", false);
+	}
+
+	memset(param, 0, sizeof(param));
+
+	param[0].buffer_type = MYSQL_TYPE_VAR_STRING;
+	param[0].buffer = numero;
+	param[0].buffer_length = strlen(numero);
+
+	param[1].buffer_type = MYSQL_TYPE_VAR_STRING;
+	param[1].buffer = tipo;
+	param[1].buffer_length = strlen(tipo);
+
+	param[2].buffer_type = MYSQL_TYPE_VAR_STRING;
+	param[2].buffer = paziente;
+	param[2].buffer_length = strlen(paziente);
+
+
+	if(mysql_stmt_bind_param(prep_stmt, param) != 0){
+		finish_with_stmt_error(conn, prep_stmt, "Could not bind parameters for 'aggiungi_recapito_tel' procedure\n", true);
+	}
+
+	if (mysql_stmt_execute(prep_stmt) != 0){
+		print_stmt_error(prep_stmt, "An error occurred during the operation");
+	} else{
+		printf("\nNumero di telefono assegnato correttamente\n");
+	}
+
+	mysql_stmt_close(prep_stmt);
+}
+
+
+
+
+static void add_personale_ad_esame(MYSQL *conn){
+
+	MYSQL_STMT *p_stmt;
+	MYSQL_BIND param[4];
+	MYSQL_TIME date;
+
+	char c_esame[46], paziente[46], day[3], month[3], year[5], personale[46];
+	int examId;
+
+	printf("\nEsame (ID): ");
+	getInput(46, c_esame, false);
+	printf("\nPaziente (tessera sanitaria): ");
+	getInput(46, paziente, false);
+
+	printf("\nData esame [DD/MM/YYYY]");
+	printf("\nGiorno: ");
+	getInput(3, day, false);
+	printf("\nMese: ");
+	getInput(3, month, false);
+	printf("\nAnno: ");
+	getInput(5, year, false);
+
+	printf("\nMembro del personale da assegnare all'esame (CF): ");
+	getInput(46, personale, false);
+
+	examId = atoi(c_esame);
+
+
+	if(!setup_prepared_stmt(&p_stmt, "call assegna_personale_ad_esame(?, ?, ?, ?)", conn)){
+		finish_with_stmt_error(conn, p_stmt, "Unable to init 'assegna_personale_ad_esame' stmt\n", false);
+	}
+
+	memset(param, 0, sizeof(param));
+	memset(&date, 0, sizeof(date));
+
+	param[0].buffer_type = MYSQL_TYPE_LONG;
+	param[0].buffer = &examId;
+	param[0].buffer_length = sizeof(examId);
+
+	param[1].buffer_type = MYSQL_TYPE_VAR_STRING;
+	param[1].buffer = paziente;
+	param[1].buffer_length = strlen(paziente);
+
+	param[2].buffer_type = MYSQL_TYPE_DATE;
+	param[2].buffer = (char *)&date;
+	param[2].buffer_length = sizeof(date);
+
+	param[3].buffer_type = MYSQL_TYPE_VAR_STRING;
+	param[3].buffer = personale;
+	param[3].buffer_length = strlen(personale);
+
+	// set struct MYSQL_TIME for date param
+	date.day = atoi(day);
+	date.month = atoi(month);
+	date.year = atoi(year);
+	date.time_type = MYSQL_TIMESTAMP_DATE;
+
+
+	if(mysql_stmt_bind_param(p_stmt, param) != 0){
+		finish_with_stmt_error(conn, p_stmt, "Could not bind parameters for 'assegna_personale_ad_esame' procedure\n", true);
+	}
+
+	if (mysql_stmt_execute(p_stmt) != 0){
+		print_stmt_error(p_stmt, "An error occurred during the operation");
+	} else{
+		printf("\nMembro del personale assegnato correttamente\n");
+	}
+
+	mysql_stmt_close(p_stmt);
+}
+
+
+
+
+
+
+
+static void search_by_tess_sanitaria(MYSQL *conn){
+
+	MYSQL_STMT *p_stmt;
+	MYSQL_BIND param[1];
+	int status;
+	char header[512];
+
+	char paziente[46];
+
+	printf("\nPaziente (tessera sanitaria): ");
+	getInput(46, paziente, false);
+
+	if(!setup_prepared_stmt(&p_stmt, "call search_patient(?)", conn)){
+		finish_with_stmt_error(conn, p_stmt, "Unable to init 'search_patient' stmt\n", false);
+	}
+
+	memset(param, 0, sizeof(param));
+
+	param[0].buffer_type = MYSQL_TYPE_VAR_STRING;
+	param[0].buffer = paziente;
+	param[0].buffer_length = strlen(paziente);
+
+	if(mysql_stmt_bind_param(p_stmt, param) != 0){
+		finish_with_stmt_error(conn, p_stmt, "Could not bind parameters for 'search_patient' procedure\n", true);
+	}
+
+	if (mysql_stmt_execute(p_stmt) != 0){
+		print_stmt_error(p_stmt, "An error occurred during the operation");
+		goto close;
+	}
+
+	sprintf (header, "\nPaziente con tessera sanitaria %s\n", paziente);
+
+	do{
+		// dump result
+		dump_result_set(conn, p_stmt, header);
+
+		status = mysql_stmt_next_result(p_stmt);
+		if(status > 0){
+			finish_with_stmt_error(conn, p_stmt, "Unexpected condition", true);
+		}
+	}while(status == 0);
+
+close:
+	mysql_stmt_close(p_stmt);
+}
+
+
+void list_patients(MYSQL *conn){
+
+	MYSQL_STMT *p_stmt;
+	int status;
+	char header[512];
+
+	if (!setup_prepared_stmt(&p_stmt, "call list_patients()", conn)){
+		finish_with_stmt_error(conn, p_stmt, "Unable to init 'list_patients' stmt\n", false);
+	}
+
+	// Nothing to bind!
+
+	if (mysql_stmt_execute(p_stmt) != 0){
+		print_stmt_error(p_stmt, "An error occurred during the execution of the query");
+		goto close;
+	}
+
+	sprintf (header, "\nPazienti registrati\n");
+
+	do{
+		// dump result
+		dump_result_set(conn, p_stmt, header);
+
+		status = mysql_stmt_next_result(p_stmt);
+		if(status > 0){
+			finish_with_stmt_error(conn, p_stmt, "Unexpected condition", true);
+		}
+	}while(status == 0);
+
+close:
+	mysql_stmt_close(p_stmt);
+}
+
+
+
+static void search_recapiti(MYSQL *conn){
+
+	MYSQL_STMT *p_stmt;
+	MYSQL_BIND param[1];
+	int status;
+	char header[512];
+
+	char paziente[46];
+
+	printf("\nPaziente (tessera sanitaria): ");
+	getInput(46, paziente, false);
+
+	if(!setup_prepared_stmt(&p_stmt, "call search_recapiti(?)", conn)){
+		finish_with_stmt_error(conn, p_stmt, "Unable to init 'search_recapiti' stmt\n", false);
+	}
+
+	memset(param, 0, sizeof(param));
+
+	param[0].buffer_type = MYSQL_TYPE_VAR_STRING;
+	param[0].buffer = paziente;
+	param[0].buffer_length = strlen(paziente);
+
+	if(mysql_stmt_bind_param(p_stmt, param) != 0){
+		finish_with_stmt_error(conn, p_stmt, "Could not bind parameters for 'search_recapiti' procedure\n", true);
+	}
+
+	if (mysql_stmt_execute(p_stmt) != 0){
+		print_stmt_error(p_stmt, "An error occurred during the operation");
+		goto close;
+	}
+
+	sprintf (header, "\nRecapiti del paziente con tessera sanitaria %s\n", paziente);
+
+	do{
+		// dump result
+		dump_result_set(conn, p_stmt, header);
+
+		status = mysql_stmt_next_result(p_stmt);
+		if(status > 0){
+			finish_with_stmt_error(conn, p_stmt, "Unexpected condition", true);
+		}
+	}while(status == 0);
+
+close:
+	mysql_stmt_close(p_stmt);
+}
+
+
+
+static void report_paziente(MYSQL *conn){
+
+	MYSQL_STMT *p_stmt;
+	MYSQL_BIND param[1];
+	int status;
+	char header[512];
+	bool first = true;
+
+	char paziente[46];
+
+	printf("\nPaziente (tessera sanitaria): ");
+	getInput(46, paziente, false);
+
+	if (!setup_prepared_stmt(&p_stmt, "call report_paziente (?)", conn)){
+		finish_with_stmt_error(conn, p_stmt, "Unable to initialize 'report_paziente' stmt\n", false);
+	}
+
+	memset(param, 0, sizeof(param));
+
+	param[0].buffer_type = MYSQL_TYPE_VAR_STRING;
+	param[0].buffer = paziente;
+	param[0].buffer_length = strlen(paziente);
+
+	if (mysql_stmt_bind_param(p_stmt, param) != 0){
+		finish_with_stmt_error(conn, p_stmt, "Could not bind parameters for 'report_paziente' stmt\n", true);
+	}
+
+	if (mysql_stmt_execute(p_stmt) != 0){
+		print_stmt_error(p_stmt, "An error occurred while retrieving output.");
+		goto exit;
+	}
+
+//MULTIPLE RESULT SETS!!!
+	do{
+
+		if(conn->server_status & SERVER_PS_OUT_PARAMS){
+			goto next;
+		}
+
+		if(first){
+			sprintf(header, "\nStorico esami eseguiti dal paziente con tessera sanitaria %s\n", paziente);
+			first = false;
+		}else{
+			sprintf(header, "\nPrenotazioni attive per il paziente con tessera sanitaria %s\n", paziente);
+		}
+
+		dump_result_set(conn, p_stmt, header);
+
+	next:
+		status = mysql_stmt_next_result(p_stmt);
+		if (status > 0){		// > 0 error, 0 keep looking, -1 finished
+			finish_with_stmt_error(conn, p_stmt, "Unexpected condition", true);
+		}
+	}while(status == 0);
+
+exit:
+	mysql_stmt_close(p_stmt);
+}
+
+
+//MENU
+static void manage_patients(MYSQL *conn){
+
+	char options[] = {'1', '2', '3', '4', '5', '6', '7', '8'};
+	char op;
+
+	while(true){
+		printf("\033[2J\033[H");
+		printf("*** Cosa desideri fare? ***\n\n");
+		printf("1) Aggiungi un nuovo paziente\n");
+		printf("2) Aggiungi un'email di un paziente\n");
+		printf("3) Aggiungi un numero di telefono di un paziente\n");
+		printf("4) Cerca paziente\n");
+		printf("5) Lista tutti i pazienti\n");
+		printf("6) Cerca i recapiti di un paziente\n");
+		printf("7) Report paziente (storico esami e prenotazioni)\n");
+		printf("8) Indietro\n");
+
+		op = multiChoice("Select an option", options, 8);
+
+		switch(op){
+			case '1':
+				add_patient(conn);
+				break;
+
+			case '2':
+				add_email(conn);
+				break;
+
+			case '3':
+				add_telefono(conn);
+				break;
+
+			case '4':
+				search_by_tess_sanitaria(conn);
+				break;
+
+			case '5':
+				list_patients(conn);
+				break;
+
+			case '6':
+				search_recapiti(conn);
+				break;
+
+			case '7':
+				report_paziente(conn);
+				break;
+
+			case '8':
+				printf("\nPress 'Enter' to continue\n");
+				return;
+
+			default:
+				fprintf(stderr, "Invalid condition at %s:%d\n", __FILE__, __LINE__ );
+				abort();
+		}
+
+		getchar(); // read the '\n'
+	}
+}
+
+
+
+//MENU
+static void manage_exams(MYSQL *conn){
+
+	char options[] = {'1', '2', '3', '4', '5', '6'};
+	char op;
+
+	while(true){
+		printf("\033[2J\033[H");
+		printf("*** Cosa desideri fare? ***\n\n");
+		printf("1) Prenota un esame\n");
+		printf("2) Aggiungi diagnosi\n");
+		printf("3) Cerca esame per codice di prenotazione\n");
+		printf("4) Visualizza gli esami disponibili\n");
+		printf("5) Assegna un membro del personale ad un esame\n");
+		printf("6) Indietro\n");
+
+		op = multiChoice("Select an option", options, 6);
+
+		switch(op){
+			case '1':
+				prenota_esame(conn);
+				break;
+
+			case '2':
+				add_diagnosi(conn);
+				break;
+
+			case '3':
+				search_by_codiceP(conn);
+				break;
+
+			case '4':
+				list_exams(conn);
+				break;
+
+			case '5':
+				add_personale_ad_esame (conn);
+				break;
+
+			case '6':
+				printf("\nPress 'Enter' to continue\n");
+				return;
+
+			default:
+				fprintf(stderr, "Invalid condition at %s:%d\n", __FILE__, __LINE__ );
+				abort();
+		}
+
+		getchar(); // read the '\n'
+	}
+}
+
+
+
+//MENU
+static void search_staff_members (MYSQL *conn){
+
+	char options[3] = {'1', '2', '3'};
+	char op;
+
+	while(true){	// while back option is selected
+		printf("\033[2J\033[H");	// clean screen
+		printf("*** Cosa desideri fare? ***\n\n");
+		printf("1) Cerca membri del personale per ospedale\n");
+		printf("2) Cerca membri del personale per reparto\n");
+		printf("3) Indietro\n");
+
+		op = multiChoice("Select an option", options, 7);
+		switch(op){
+			case '1':
+				select_personale_by_hosp(conn);
+				break;
+			case '2':
+				select_personale_by_rep(conn);
+				break;
+			case '3':
+				printf("\nPress 'Enter' to continue\n");
+				return;
+			default:
+				fprintf(stderr, "Invalid condition at %s:%d\n", __FILE__, __LINE__);
+				abort();
+		}
+
+		getchar();
+	}
+}
+
+
+
 void run_as_personaleCUP(MYSQL *conn){
 
 	char options[] = {'1', '2', '3', '4', '5'};
@@ -377,30 +907,30 @@ void run_as_personaleCUP(MYSQL *conn){
 
 	while(true){
 		printf("\033[2J\033[H");
-		printf("*** What do you want to do? ***\n\n");
-		printf("1) Insert a new patient\n");
-		printf("2) Make a medical reservation\n");
-		printf("3) Add diagnosis\n");
-		printf("4) Search exams by reservation code\n");
-		printf("5) Quit\n");
+		printf("*** Cosa desideri fare? ***\n\n");
+		printf("1) Gestisci pazienti\n");
+		printf("2) Gestisci esami\n");
+		printf("3) Visualizza le strutture mediche\n");
+		printf("4) Cerca membri del personale\n");
+		printf("5) Esci\n");
 
 		op = multiChoice("Select an option", options, 5);
 
 		switch(op){
 			case '1':
-				add_patient(conn);
+				manage_patients(conn);
 				break;
 
 			case '2':
-				prenota_esame(conn);
+				manage_exams(conn);
 				break;
 
 			case '3':
-				add_diagnosi(conn);
+				list_medical_structures(conn);
 				break;
 
 			case '4':
-				search_by_codiceP(conn);
+				search_staff_members(conn);
 				break;
 
 			case '5':

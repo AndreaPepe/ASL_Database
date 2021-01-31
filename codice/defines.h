@@ -44,3 +44,15 @@ extern void run_as_personaleCUP(MYSQL *conn);
 
 /* prepare output tables to be printed well */
 extern void dump_result_set(MYSQL *conn, MYSQL_STMT *stmt, char *title);
+
+
+/* common operations */
+extern void list_medical_structures(MYSQL *conn);
+extern void list_ospedali(MYSQL *conn);
+extern void list_laboratori(MYSQL *conn);
+extern void list_reparti(MYSQL *conn);
+
+extern void select_personale_by_hosp(MYSQL *conn);
+extern void select_personale_by_rep(MYSQL *conn);
+
+extern void list_exams(MYSQL *conn);

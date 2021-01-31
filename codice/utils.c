@@ -4,6 +4,8 @@
 
 #include "defines.h"
 
+#define FLOAT_SIZE 10
+
 /*this function is used to print errors verified during the execution of some stmt */
 void print_stmt_error (MYSQL_STMT *stmt, char *message){
 
@@ -75,13 +77,18 @@ void finish_with_stmt_error(MYSQL *conn, MYSQL_STMT *stmt, char *message, bool c
 static void print_dashes(MYSQL_RES *res_set)
 {
 	MYSQL_FIELD *field;
-	unsigned int i, j;
+	unsigned int i, j, num;
 
 	mysql_field_seek(res_set, 0);
 	putchar('+');
 	for (i = 0; i < mysql_num_fields(res_set); i++) {
 		field = mysql_fetch_field(res_set);
-		for (j = 0; j < field->max_length + 2; j++)
+    if (field->type == MYSQL_TYPE_FLOAT){
+      num = FLOAT_SIZE;
+    }else{
+      num = field->max_length + 2;
+    }
+		for (j = 0; j < num; j++)
 			putchar('-');
 		putchar('+');
 	}
@@ -117,7 +124,11 @@ static void dump_result_set_header(MYSQL_RES *res_set)
 	mysql_field_seek (res_set, 0);
 	for (i = 0; i < mysql_num_fields(res_set); i++) {
 		field = mysql_fetch_field(res_set);
+    if (field->type == MYSQL_TYPE_FLOAT){
+      printf(" %-*s |", FLOAT_SIZE - 2, field->name);
+    }else{
 		printf(" %-*s |", (int)field->max_length, field->name);
+    }
 	}
 	putchar('\n');
 
@@ -259,7 +270,7 @@ void dump_result_set(MYSQL *conn, MYSQL_STMT *stmt, char *title)
 					case MYSQL_TYPE_DATE:
 					case MYSQL_TYPE_TIMESTAMP:
 						date = (MYSQL_TIME *)rs_bind[i].buffer;
-						printf(" %02d-%02d-%d |", date->day, date->month, date->year);  // modified to [DD-MM-YYYY] format
+						printf(" %02d-%02d-%04d |", date->day, date->month, date->year);  // modified to [DD-MM-YYYY] format
 						break;
 
 					case MYSQL_TYPE_STRING:
@@ -268,11 +279,13 @@ void dump_result_set(MYSQL *conn, MYSQL_STMT *stmt, char *title)
 
 					case MYSQL_TYPE_FLOAT:
 					case MYSQL_TYPE_DOUBLE:
-						printf(" %.02f |", *(float *)rs_bind[i].buffer);
+						printf(" %-*.02f |", FLOAT_SIZE -2, *(float *)rs_bind[i].buffer);   //modified (float: max 10 digits)
 						break;
 
 					case MYSQL_TYPE_LONG:
 					case MYSQL_TYPE_SHORT:
+            printf(" %-*d |", (int)fields[i].max_length, *(int*)rs_bind[i].buffer); //modified from int* to signed char*
+            break;
 					case MYSQL_TYPE_TINY:
 						printf(" %-*d |", (int)fields[i].max_length, *(signed char *)rs_bind[i].buffer); //modified from int* to signed char*
             break;
