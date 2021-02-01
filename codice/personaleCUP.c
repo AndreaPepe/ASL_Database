@@ -540,8 +540,6 @@ static void add_personale_ad_esame(MYSQL *conn){
 
 
 
-
-
 static void search_by_tess_sanitaria(MYSQL *conn){
 
 	MYSQL_STMT *p_stmt;
@@ -734,6 +732,149 @@ exit:
 }
 
 
+
+static void inserisci_risultato_esame(MYSQL *conn){
+
+	MYSQL_STMT *p_stmt;
+	MYSQL_BIND param[5];
+	MYSQL_TIME date;
+
+	char c_esame[46], paziente[46], day[3], month[3], year[5], parametro[46], c_valore[12];
+	int examId;
+	float valore;
+
+	printf("\nEsame (ID): ");
+	getInput(46, c_esame, false);
+	printf("\nPaziente (tessera sanitaria): ");
+	getInput(46, paziente, false);
+
+	printf("\nData esame [DD/MM/YYYY]");
+	printf("\nGiorno: ");
+	getInput(3, day, false);
+	printf("\nMese: ");
+	getInput(3, month, false);
+	printf("\nAnno: ");
+	getInput(5, year, false);
+
+	printf("\nParametro di cui si vuole assegnare il valore: ");
+	getInput(46, parametro, false);
+	printf("\nValore parametro: ");
+	getInput(12, c_valore, false);
+
+	examId = atoi(c_esame);
+	valore = strtof(c_valore, NULL);
+
+	if(!setup_prepared_stmt(&p_stmt, "call inserisci_risultato_esame(?, ?, ?, ?, ?)", conn)){
+		finish_with_stmt_error(conn, p_stmt, "Unable to init 'inserisci_risultato_esame' stmt\n", false);
+	}
+
+	memset(param, 0, sizeof(param));
+	memset(&date, 0, sizeof(date));
+
+	param[0].buffer_type = MYSQL_TYPE_LONG;
+	param[0].buffer = &examId;
+	param[0].buffer_length = sizeof(examId);
+
+	param[1].buffer_type = MYSQL_TYPE_VAR_STRING;
+	param[1].buffer = paziente;
+	param[1].buffer_length = strlen(paziente);
+
+	param[2].buffer_type = MYSQL_TYPE_DATE;
+	param[2].buffer = (char *)&date;
+	param[2].buffer_length = sizeof(date);
+
+	param[3].buffer_type = MYSQL_TYPE_VAR_STRING;
+	param[3].buffer = parametro;
+	param[3].buffer_length = strlen(parametro);
+
+	param[4].buffer_type = MYSQL_TYPE_FLOAT;
+	param[4].buffer = &valore;
+	param[4].buffer_length = sizeof(valore);
+
+	// set struct MYSQL_TIME for date param
+	date.day = atoi(day);
+	date.month = atoi(month);
+	date.year = atoi(year);
+	date.time_type = MYSQL_TIMESTAMP_DATE;
+
+
+	if(mysql_stmt_bind_param(p_stmt, param) != 0){
+		finish_with_stmt_error(conn, p_stmt, "Could not bind parameters for 'inserisci_risultato_esame' procedure\n", true);
+	}
+
+	if (mysql_stmt_execute(p_stmt) != 0){
+		print_stmt_error(p_stmt, "An error occurred during the operation");
+	} else{
+		printf("\nValore del parametro assegnato correttamente\n");
+	}
+
+	mysql_stmt_close(p_stmt);
+}
+
+
+
+
+static void report_risultati_prenotazione(MYSQL *conn){
+
+	MYSQL_STMT *p_stmt;
+	MYSQL_BIND param[1];
+	int status;
+	char header[512];
+	int count = 1;
+
+	char c_codiceP[12];
+	int codiceP;
+
+	printf("\nCodice di prenotazione: ");
+	getInput(12, c_codiceP, false);
+
+	codiceP = atoi(c_codiceP);
+
+	if (!setup_prepared_stmt(&p_stmt, "call report_risultati_prenotazione (?)", conn)){
+		finish_with_stmt_error(conn, p_stmt, "Unable to initialize 'report_risultati_prenotazione' stmt\n", false);
+	}
+
+	memset(param, 0, sizeof(param));
+
+	param[0].buffer_type = MYSQL_TYPE_LONG;
+	param[0].buffer = &codiceP;
+	param[0].buffer_length = sizeof(codiceP);
+
+	if (mysql_stmt_bind_param(p_stmt, param) != 0){
+		finish_with_stmt_error(conn, p_stmt, "Could not bind parameters for 'report_risultati_prenotazione' stmt\n", true);
+	}
+
+	if (mysql_stmt_execute(p_stmt) != 0){
+		print_stmt_error(p_stmt, "An error occurred while retrieving output.");
+		goto exit;
+	}
+
+//MULTIPLE RESULT SETS!!!
+	do{
+
+		if(conn->server_status & SERVER_PS_OUT_PARAMS){
+			goto next;
+		}
+
+		sprintf(header, "\nRisultati esame n° %d con codice di prenotazione %d\n", count, codiceP);
+		dump_result_set(conn, p_stmt, header);
+		count++;
+
+	next:
+		status = mysql_stmt_next_result(p_stmt);
+		if (status > 0){		// > 0 error, 0 keep looking, -1 finished
+			finish_with_stmt_error(conn, p_stmt, "Unexpected condition", true);
+		}
+	}while(status == 0);
+
+exit:
+	mysql_stmt_close(p_stmt);
+}
+
+
+
+
+
 //MENU
 static void manage_patients(MYSQL *conn){
 
@@ -801,7 +942,7 @@ static void manage_patients(MYSQL *conn){
 //MENU
 static void manage_exams(MYSQL *conn){
 
-	char options[] = {'1', '2', '3', '4', '5', '6'};
+	char options[] = {'1', '2', '3', '4', '5', '6', '7', '8'};
 	char op;
 
 	while(true){
@@ -812,9 +953,11 @@ static void manage_exams(MYSQL *conn){
 		printf("3) Cerca esame per codice di prenotazione\n");
 		printf("4) Visualizza gli esami disponibili\n");
 		printf("5) Assegna un membro del personale ad un esame\n");
-		printf("6) Indietro\n");
+		printf("6) Inserisci risultato di un esame (singolo parametro)\n");
+		printf("7) Visualizza risultati esami per codice di prenotazione\n");
+		printf("8) Indietro\n");
 
-		op = multiChoice("Select an option", options, 6);
+		op = multiChoice("Select an option", options, 8);
 
 		switch(op){
 			case '1':
@@ -838,6 +981,14 @@ static void manage_exams(MYSQL *conn){
 				break;
 
 			case '6':
+				inserisci_risultato_esame(conn);
+				break;
+
+			case '7':
+				report_risultati_prenotazione(conn);
+				break;
+
+			case '8':
 				printf("\nPress 'Enter' to continue\n");
 				return;
 

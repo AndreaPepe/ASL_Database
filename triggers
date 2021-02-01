@@ -1,0 +1,14 @@
+CREATE DEFINER = CURRENT_USER TRIGGER `ASL_db`.`Esame_effettivo_BEFORE_INSERT` BEFORE INSERT ON `Esame_effettivo` FOR EACH ROW
+BEGIN
+	if NEW.data < CURDATE() then
+		signal sqlstate '45007' set message_text = "A reservation in the past is not allowed!";
+	end if;
+END
+
+
+CREATE DEFINER = CURRENT_USER TRIGGER `ASL_db`.`Svolgimento_BEFORE_INSERT` BEFORE INSERT ON `Svolgimento` FOR EACH ROW
+BEGIN
+	if NEW.data < current_date() then
+		signal sqlstate '45008' set message_text = "Exam already executed";
+	end if;
+END
