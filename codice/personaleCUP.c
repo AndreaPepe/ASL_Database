@@ -939,10 +939,77 @@ static void manage_patients(MYSQL *conn){
 
 
 
+static void cancella_prenotazione(MYSQL *conn){
+
+	MYSQL_STMT *p_stmt;
+	MYSQL_BIND param[3];
+	MYSQL_TIME date;
+
+	char c_esame[46], paziente[46], day[3], month[3], year[5];
+	int examId;
+
+	printf("\nEsame (ID): ");
+	getInput(46, c_esame, false);
+	printf("\nPaziente (tessera sanitaria): ");
+	getInput(46, paziente, false);
+
+	printf("\nData esame [DD/MM/YYYY]");
+	printf("\nGiorno: ");
+	getInput(3, day, false);
+	printf("\nMese: ");
+	getInput(3, month, false);
+	printf("\nAnno: ");
+	getInput(5, year, false);
+
+	examId = atoi(c_esame);
+
+
+	if(!setup_prepared_stmt(&p_stmt, "call cancella_prenotazione(?, ?, ?)", conn)){
+		finish_with_stmt_error(conn, p_stmt, "Unable to init 'cancella_prenotazione' stmt\n", false);
+	}
+
+	memset(param, 0, sizeof(param));
+	memset(&date, 0, sizeof(date));
+
+	param[0].buffer_type = MYSQL_TYPE_LONG;
+	param[0].buffer = &examId;
+	param[0].buffer_length = sizeof(examId);
+
+	param[1].buffer_type = MYSQL_TYPE_VAR_STRING;
+	param[1].buffer = paziente;
+	param[1].buffer_length = strlen(paziente);
+
+	param[2].buffer_type = MYSQL_TYPE_DATE;
+	param[2].buffer = (char *)&date;
+	param[2].buffer_length = sizeof(date);
+
+	// set struct MYSQL_TIME for date param
+	date.day = atoi(day);
+	date.month = atoi(month);
+	date.year = atoi(year);
+	date.time_type = MYSQL_TIMESTAMP_DATE;
+
+
+	if(mysql_stmt_bind_param(p_stmt, param) != 0){
+		finish_with_stmt_error(conn, p_stmt, "Could not bind parameters for 'cancella_prenotazione' procedure\n", true);
+	}
+
+	if (mysql_stmt_execute(p_stmt) != 0){
+		print_stmt_error(p_stmt, "An error occurred during the operation");
+	}
+
+	mysql_stmt_close(p_stmt);
+}
+
+
+
+
+
+
 //MENU
 static void manage_exams(MYSQL *conn){
 
-	char options[] = {'1', '2', '3', '4', '5', '6', '7', '8'};
+	char options[] = {'1', '2', '3', '4', '5', '6', '7', '8', '9'};
 	char op;
 
 	while(true){
@@ -955,9 +1022,10 @@ static void manage_exams(MYSQL *conn){
 		printf("5) Assegna un membro del personale ad un esame\n");
 		printf("6) Inserisci risultato di un esame (singolo parametro)\n");
 		printf("7) Visualizza risultati esami per codice di prenotazione\n");
-		printf("8) Indietro\n");
+		printf("8) Cancella prenotazione di un esame\n");
+		printf("9) Indietro\n");
 
-		op = multiChoice("Select an option", options, 8);
+		op = multiChoice("Select an option", options, 9);
 
 		switch(op){
 			case '1':
@@ -989,6 +1057,10 @@ static void manage_exams(MYSQL *conn){
 				break;
 
 			case '8':
+				cancella_prenotazione(conn);
+				break;
+
+			case '9':
 				printf("\nPress 'Enter' to continue\n");
 				return;
 

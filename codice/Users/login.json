@@ -1,7 +1,7 @@
 {
   "host": "localhost",
   "username": "login",
-  "password": "login",
+  "password": "loginUser0!",
   "port": 3306,
   "database": "ASL_db"
 }

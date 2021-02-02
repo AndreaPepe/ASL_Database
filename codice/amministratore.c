@@ -643,7 +643,7 @@ static void crea_reparto(MYSQL *conn){
 	if(mysql_stmt_execute(p_stmt) != 0){
 		print_stmt_error(p_stmt, "An error occurred during 'inserisci_reparto' procedure ");
 	}else{
-		printf("New laboratory correctly created\n");
+		printf("New department correctly created\n");
 	}
 
 	mysql_stmt_close(p_stmt);
