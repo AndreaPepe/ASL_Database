@@ -1250,7 +1250,7 @@ BEGIN
         resignal;
 	end;
 
-    set transaction isolation level REPEATABLE READ;
+    set transaction isolation level READ COMMITTED;
     start transaction;
 		open cur;
 
