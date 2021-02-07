@@ -12,3 +12,20 @@ BEGIN
 		signal sqlstate '45008' set message_text = "Exam already executed";
 	end if;
 END
+
+USE `ASL_db`$$
+DROP TRIGGER IF EXISTS `ASL_db`.`Esame_effettivo_BEFORE_INSERT_1` $$
+USE `ASL_db`$$
+CREATE DEFINER = CURRENT_USER TRIGGER `ASL_db`.`Esame_effettivo_BEFORE_INSERT_1` BEFORE INSERT ON `Esame_effettivo` FOR EACH ROW
+BEGIN
+	declare var_paziente varchar(45);
+    
+    select paziente 
+    from Esame_effettivo
+    where codiceP = NEW.codiceP
+    into var_paziente;
+    
+    if var_paziente is not null and var_paziente <> NEW.paziente then	
+		signal sqlstate '45012' set message_text="Il codice di prenotazione è già stato utilizzato per un altro paziente";
+	end if;
+END$$

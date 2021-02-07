@@ -316,11 +316,19 @@ DROP TABLE IF EXISTS `ASL_db`.`Personale_dati_lavorativi` ;
 
 CREATE TABLE IF NOT EXISTS `ASL_db`.`Personale_dati_lavorativi` (
   `personale` VARCHAR(45) NOT NULL,
+  `ospedale` INT NOT NULL,
+  `reparto` INT NOT NULL,
   PRIMARY KEY (`personale`),
+  INDEX `fk_Personale_dati_lavorativi_Reparto1_idx` (`ospedale` ASC, `reparto` ASC) VISIBLE,
   CONSTRAINT `fk_Personale_dati_lavorativi_Personale_anagrafica1`
     FOREIGN KEY (`personale`)
     REFERENCES `ASL_db`.`Personale_anagrafica` (`CF`)
     ON DELETE CASCADE
+    ON UPDATE NO ACTION,
+  CONSTRAINT `fk_Personale_dati_lavorativi_Reparto1`
+    FOREIGN KEY (`ospedale` , `reparto`)
+    REFERENCES `ASL_db`.`Reparto` (`hospID` , `repID`)
+    ON DELETE NO ACTION
     ON UPDATE NO ACTION)
 ENGINE = InnoDB;
 
@@ -365,21 +373,21 @@ USE `ASL_db`$$
 CREATE PROCEDURE `inserisci_ospedale` (IN var_nome varchar(45), IN var_indirizzo varchar(100), IN var_primario VARCHAR(45), OUT var_hospID int)
 BEGIN
 	declare var_tipo enum('medico', 'primario', 'volontario');
-
+    
 	declare exit handler for sqlexception
 		begin
 			rollback;
 			resignal;
 		end;
-
+        
 	set transaction isolation level READ COMMITTED;
     start transaction;
-
+		
         select P.tipo
         from Personale_anagrafica P
         where P.CF = var_primario
         into var_tipo;
-
+        
         if var_tipo = 'volontario' then
 			signal sqlstate '45006' set message_text = "Un volontario non può essere primario";
 		elseif var_tipo = 'medico' then
@@ -388,10 +396,10 @@ BEGIN
             where CF = var_primario;
 		end if;
         -- if var_tipo = 'primario' do nothing
-
-		insert into Ospedale (nome, indirizzo, primario)
+        
+		insert into Ospedale (nome, indirizzo, primario) 
 		values (var_nome, var_indirizzo, var_primario);
-
+    
 		set var_hospID = last_insert_id();
 	commit;
 END$$
@@ -428,21 +436,21 @@ USE `ASL_db`$$
 CREATE PROCEDURE `inserisci_laboratorio` (IN var_ospedale int, IN var_laboratorio int, IN var_nome varchar(45), IN var_piano int, IN var_stanza varchar(45),IN var_primario varchar(45))
 BEGIN
 	declare var_tipo enum('medico', 'primario', 'volontario');
-
+    
     declare exit handler for sqlexception
     begin
 		rollback;
         resignal;
 	end;
-
+    
     set transaction isolation level read committed;
     start transaction;
-
+		
         select tipo
         from Personale_anagrafica
         where CF = var_primario
         into var_tipo;
-
+        
         if var_tipo = 'volontario' then
 			signal sqlstate '45006' set message_text = "Un volontario non può essere un primario.";
 		elseif var_tipo = 'medico' then
@@ -450,10 +458,10 @@ BEGIN
             set tipo = 'primario'
             where CF = var_primario;
 		end if;
-
+        
         -- if var_tipo = 'primario' do nothing;
-
-		insert into Laboratorio(hospID, labID,nome, piano, stanza, primario)
+    
+		insert into Laboratorio(hospID, labID,nome, piano, stanza, primario) 
         values (var_ospedale, var_laboratorio, var_nome, var_piano, var_stanza, var_primario);
 
 	commit;
@@ -523,12 +531,12 @@ USE `ASL_db`$$
 CREATE PROCEDURE `login` (IN var_username VARCHAR(45), IN var_password CHAR(32), OUT var_role INT)
 BEGIN
 	declare var_role_name ENUM('amministratore','personaleCUP');
-
+    
     SELECT ruolo
-    FROM Users
+    FROM Users 
     WHERE username = var_username AND password = md5(var_password)
     INTO var_role_name;
-
+    
     -- protocol between DBMS and client
     IF var_role_name = 'amministratore' then
 		set var_role = 1;
@@ -552,7 +560,7 @@ DELIMITER $$
 USE `ASL_db`$$
 CREATE PROCEDURE `registration` (IN var_username VARCHAR(45), IN var_password VARCHAR(32), IN var_ruolo ENUM('amministratore', 'personaleCUP'))
 BEGIN
-	INSERT INTO Users(username, password, ruolo)
+	INSERT INTO Users(username, password, ruolo) 
     VALUES (var_username, md5(var_password), var_ruolo);
 END$$
 
@@ -689,22 +697,22 @@ DELIMITER $$
 USE `ASL_db`$$
 CREATE PROCEDURE `select_personale_by_hosp` (IN var_ospedale int)
 BEGIN
-
+	
     declare exit handler for sqlexception
 		begin
 			rollback;
 			resignal;
 		end;
-
+        
 	set transaction isolation level READ COMMITTED;
     start transaction;
-
+    
 		select P2.ospedale as ospedale, P2.reparto as reparto, CF, nome, cognome, indirizzo, tipo as ruolo, associazione
         from Personale_anagrafica as P1 join Personale_dati_lavorativi as P2 on P1.CF = P2.personale
 		where P2.ospedale = var_ospedale;
-
+        
     commit;
-
+    
 END$$
 
 DELIMITER ;
@@ -720,22 +728,22 @@ DELIMITER $$
 USE `ASL_db`$$
 CREATE PROCEDURE `select_personale_by_rep` (IN var_ospedale int, IN var_reparto int)
 BEGIN
-
+	
     declare exit handler for sqlexception
 		begin
 			rollback;
 			resignal;
 		end;
-
+        
 	set transaction isolation level READ COMMITTED;
     start transaction;
-
+    
 		select P2.ospedale as ospedale, P2.reparto as reparto, CF, nome, cognome, indirizzo, tipo as ruolo, associazione
         from Personale_anagrafica as P1 join Personale_dati_lavorativi as P2 on P1.CF = P2.personale
 		where P2.ospedale = var_ospedale and P2.reparto = var_reparto;
-
+        
     commit;
-
+    
 END$$
 
 DELIMITER ;
@@ -754,7 +762,7 @@ BEGIN
 
 	insert into Esame_effettivo(examID, paziente, data, ora, urgenza, diagnosi, codiceP, laboratorio, ospedale)
     values (var_esame, var_paziente, var_data, var_ora, var_urgenza, var_diagnosi, var_codiceP, var_lab, var_hosp);
-
+    
 END$$
 
 DELIMITER ;
@@ -774,7 +782,7 @@ BEGIN
 	update Esame_effettivo
     set diagnosi = var_diagnosi
     where examId = var_esame and paziente = var_paziente and data = var_data;
-
+    
 END$$
 
 DELIMITER ;
@@ -796,14 +804,14 @@ BEGIN
 		rollback;
         resignal;
 	end;
-
+    
     set transaction isolation level read committed;
     start transaction;
-
+		
         select paziente, descrizione as esame, data, ora, urgenza, diagnosi, ospedale, laboratorio
         from Esame_effettivo E1 join Esame E2 on E1.examID = E2.examID
         where E1.codiceP = var_codiceP;
-
+        
     commit;
 END$$
 
@@ -843,18 +851,18 @@ BEGIN
 		rollback;
         resignal;
 	end;
-
+    
     set transaction isolation level READ COMMITTED;
     start transaction;
-
+    
 		select codiceP as 'P. code', descrizione as esame, data, urgenza, diagnosi, laboratorio, ospedale, costo
         from Esame_effettivo E join Esame E1 on E.examID = E1.examID
         where E.paziente = var_paziente and E.data <= current_date();
-
+        
         select codiceP as 'P. code', descrizione as esame, data, urgenza, diagnosi, laboratorio, ospedale, costo
         from Esame_effettivo E join Esame E1 on E.examID = E1.examID
         where E.paziente = var_paziente and E.data > current_date();
-
+        
     commit;
 
 END$$
@@ -875,7 +883,7 @@ BEGIN
 
 	insert into Svolgimento(esame, paziente, data, personale)
     values (var_esame, var_paziente, var_data, var_personale);
-
+    
 END$$
 
 DELIMITER ;
@@ -898,26 +906,26 @@ BEGIN
 		rollback;
         resignal;
 	end;
-
+    
     -- consecutive reads and range lock needed
     set transaction isolation level SERIALIZABLE;
     start transaction;
-
+		
          -- number of executed exams
         select count(*)
         from Svolgimento S
         where S.personale = var_personale and S.data <= current_date() and S.data >= DATE_SUB(current_date(), interval 1 MONTH)
         into numero_esami;
-
+        
         -- info about executed exams
         select E1.descrizione as esame, E.paziente as paziente, E.data as data, E.urgenza as urgenza, E.ospedale as ospedale, E.laboratorio as laboratorio
         from Svolgimento S join Personale_anagrafica P on S.personale = P.CF
 			join Esame_effettivo E on S.esame = E.examID and S.data = E.data and S.paziente = E.paziente
             join Esame E1 on E.examID = E1.examID
 		where S.personale = var_personale and S.data <= current_date() and S.data >= DATE_SUB(current_date(), interval 1 MONTH);
-
-
-
+        
+       
+        
     commit;
 END$$
 
@@ -941,25 +949,25 @@ BEGIN
 		rollback;
         resignal;
 	end;
-
+    
     set transaction isolation level SERIALIZABLE;
     start transaction;
-
+        
         -- number of executed exams
         select count(*)
         from Svolgimento S
         where S.personale = var_personale and S.data <= current_date() and S.data >= DATE_SUB(current_date(), interval 1 YEAR)
         into numero_esami;
-
+        
         -- info about executed exams
         select E1.descrizione as esame, E.paziente as paziente, E.data as data, E.urgenza as urgenza, E.ospedale as ospedale, E.laboratorio as laboratorio
         from Svolgimento S join Personale_anagrafica P on S.personale = P.CF
 			join Esame_effettivo E on S.esame = E.examID and S.data = E.data and S.paziente = E.paziente
             join Esame E1 on E.examID = E1.examID
 		where S.personale = var_personale and S.data <= current_date() and S.data >= DATE_SUB(current_date(), interval 1 YEAR);
-
-
-
+        
+         
+        
     commit;
 END$$
 
@@ -981,7 +989,7 @@ BEGIN
 		rollback;
         resignal;
 	end;
-
+    
     set transaction isolation level READ COMMITTED;
     start transaction;
 		select examID as ID, descrizione, costo
@@ -1007,10 +1015,10 @@ BEGIN
 		rollback;
         resignal;
 	end;
-
+    
     set transaction isolation level READ COMMITTED;
     start transaction;
-		select hospID as ID, O.nome as nome, O.indirizzo as indirizzo, P.nome as 'nome primario', P.cognome as 'cognome primario'
+		select hospID as ID, O.nome as nome, O.indirizzo as indirizzo, P.nome as 'nome primario', P.cognome as 'cognome primario' 
 		from Ospedale O join Personale_anagrafica P on O.primario = P.CF
         order by hospID asc;
 	commit;
@@ -1034,10 +1042,10 @@ BEGIN
 		rollback;
         resignal;
 	end;
-
+    
     set transaction isolation level READ COMMITTED;
     start transaction;
-		select hospID as ospedale, labID as ID, Laboratorio.nome as nome, piano, stanza, P.nome as 'nome primario', P.cognome as 'cognome primario'
+		select hospID as ospedale, labID as ID, Laboratorio.nome as nome, piano, stanza, P.nome as 'nome primario', P.cognome as 'cognome primario' 
 		from Laboratorio join Personale_anagrafica P on primario = P.CF
         order by hospID asc;
 	commit;
@@ -1061,7 +1069,7 @@ BEGIN
 		rollback;
         resignal;
 	end;
-
+    
     set transaction isolation level READ COMMITTED;
     start transaction;
 		select hospID as ospedale, repID as ID, nome, tel as telefono
@@ -1089,13 +1097,13 @@ BEGIN
 		rollback;
         resignal;
 	end;
-
+    
     set transaction isolation level READ COMMITTED;
-
+		
         select tessera_sanitaria as 'tessera sanitaria', nome, cognome, indirizzo, dataN as 'D.O.B.', luogoN as 'luogo nascita'
         from Paziente
         order by tessera_sanitaria;
-
+        
     commit;
 END$$
 
@@ -1118,14 +1126,14 @@ BEGIN
 		rollback;
         resignal;
 	end;
-
+    
     set transaction isolation level READ COMMITTED;
     start transaction;
-
+    
 		select tessera_sanitaria as 'tessera sanitaria', nome, cognome, indirizzo, dataN as 'D.O.B.', luogoN as 'luogo nascita'
         from Paziente
         where tessera_sanitaria = var_tessera_sanitaria;
-
+        
     commit;
 END$$
 
@@ -1148,10 +1156,10 @@ BEGIN
 		rollback;
         resignal;
 	end;
-
+    
     set transaction isolation level READ COMMITTED;
     start transaction;
-
+		
         select paziente, numero as recapito
         from Telefono
         where paziente = var_paziente
@@ -1160,7 +1168,7 @@ BEGIN
         from Email
         where paziente = var_paziente;
     commit;
-
+        
 END$$
 
 DELIMITER ;
@@ -1183,28 +1191,28 @@ BEGIN
 		rollback;
         resignal;
 	end;
-
+    
     set transaction isolation level READ COMMITTED;
     start transaction;
-
+    
 		select tipo
         from Personale_anagrafica
         where CF = var_primario
         into var_ruolo;
-
+        
         if var_ruolo <> 'primario' then
 			signal sqlstate '45009' set message_text = "Il membro del personale non è un primario";
 		end if;
-
-
+        
+        
         select hospID as ospedale, nome, indirizzo
         from Ospedale
         where primario = var_primario;
-
+        
         select hospID as ospedale, labID as laboratorio, nome, piano, stanza
         from Laboratorio
         where primario = var_primario;
-
+        
     commit;
 END$$
 
@@ -1221,45 +1229,45 @@ DELIMITER $$
 USE `ASL_db`$$
 CREATE PROCEDURE `report_risultati_prenotazione` (IN var_codiceP int)
 BEGIN
-
+    
 	declare done int default false;
     declare var_examID int;
     declare var_paziente varchar(45);
     declare var_data date;
-
+        
 	declare cur cursor for
 		select examID, paziente, data
         from Esame_effettivo
         where codiceP = var_codiceP;
-
+	
 	declare continue handler for not found
 		set done = true;
-
+    
     -- both handler must be declared after cursor
     declare exit handler for sqlexception
 	begin
 		rollback;
         resignal;
 	end;
-
-    set transaction isolation level READ COMMITTED;
+    
+    set transaction isolation level REPEATABLE READ;
     start transaction;
 		open cur;
-
+		
 		read_loop: loop
 			fetch cur into var_examID, var_paziente, var_data;
 			if done then
 				leave read_loop;
 			end if;
-
+			
 			select E.descrizione as esame, R.paziente as paziente, R.data as data, C.parametro as parametro, R.valore as valore
-			from Esame E join Risultato R on E.examID = R.esame
+			from Esame E join Risultato R on E.examID = R.esame 
 				right join Composizione C on R.esame = C.examID and R.parametro = C.parametro
 			where R.esame = var_examID and R.paziente = var_paziente and R.data = var_data;
-
-		end loop;
+			
+		end loop;   
 		close cur;
-
+        
     commit;
 END$$
 
@@ -1279,8 +1287,102 @@ BEGIN
 
 	delete from Esame_effettivo
     where examID = var_esame and paziente = var_paziente and data = var_data;
-
+    
 END$$
+
+DELIMITER ;
+USE `ASL_db`;
+
+DELIMITER $$
+
+USE `ASL_db`$$
+DROP TRIGGER IF EXISTS `ASL_db`.`Esame_effettivo_BEFORE_INSERT` $$
+USE `ASL_db`$$
+CREATE DEFINER = CURRENT_USER TRIGGER `ASL_db`.`Esame_effettivo_BEFORE_INSERT` BEFORE INSERT ON `Esame_effettivo` FOR EACH ROW
+BEGIN
+	if NEW.data < CURDATE() then
+		signal sqlstate '45007' set message_text = "A reservation in the past is not allowed!";
+	end if;
+END$$
+
+
+USE `ASL_db`$$
+DROP TRIGGER IF EXISTS `ASL_db`.`Esame_effettivo_BEFORE_INSERT_1` $$
+USE `ASL_db`$$
+CREATE DEFINER = CURRENT_USER TRIGGER `ASL_db`.`Esame_effettivo_BEFORE_INSERT_1` BEFORE INSERT ON `Esame_effettivo` FOR EACH ROW
+BEGIN
+	declare var_paziente varchar(45);
+    
+    select paziente 
+    from Esame_effettivo
+    where codiceP = NEW.codiceP
+    into var_paziente;
+    
+    if var_paziente is not null and var_paziente <> NEW.paziente then	
+		signal sqlstate '45012' set message_text="Il codice di prenotazione è già stato utilizzato per un altro paziente";
+	end if;
+END$$
+
+
+USE `ASL_db`$$
+DROP TRIGGER IF EXISTS `ASL_db`.`Esame_effettivo_BEFORE_DELETE` $$
+USE `ASL_db`$$
+CREATE DEFINER = CURRENT_USER TRIGGER `ASL_db`.`Esame_effettivo_BEFORE_DELETE` BEFORE DELETE ON `Esame_effettivo` FOR EACH ROW
+BEGIN
+	if OLD.data < CURDATE() then
+		signal sqlstate '45011' set message_text = "L'esame è già stato eseguito e non può essere rimosso";
+	end if;
+END$$
+
+
+USE `ASL_db`$$
+DROP TRIGGER IF EXISTS `ASL_db`.`Svolgimento_BEFORE_INSERT` $$
+USE `ASL_db`$$
+CREATE DEFINER = CURRENT_USER TRIGGER `ASL_db`.`Svolgimento_BEFORE_INSERT` BEFORE INSERT ON `Svolgimento` FOR EACH ROW
+BEGIN
+	if NEW.data < current_date() then
+		signal sqlstate '45008' set message_text = "Exam already executed";
+	end if;
+END$$
+
+
+USE `ASL_db`$$
+DROP TRIGGER IF EXISTS `ASL_db`.`Specializzato_BEFORE_INSERT` $$
+USE `ASL_db`$$
+CREATE DEFINER = CURRENT_USER TRIGGER `ASL_db`.`Specializzato_BEFORE_INSERT` BEFORE INSERT ON `Specializzato` FOR EACH ROW
+BEGIN
+	declare var_tipo enum('medico', 'primario', 'volontario');
+    
+    select tipo
+    from Personale_anagrafica as P
+    where P.CF = NEW.primario
+    into var_tipo;
+    
+    if var_tipo <> 'primario' then	
+		signal sqlstate '45005' set message_text = "Il membro del personale indicato non è un primario.";
+	end if;
+END$$
+
+
+USE `ASL_db`$$
+DROP TRIGGER IF EXISTS `ASL_db`.`Risultato_BEFORE_INSERT` $$
+USE `ASL_db`$$
+CREATE DEFINER = CURRENT_USER TRIGGER `ASL_db`.`Risultato_BEFORE_INSERT` BEFORE INSERT ON `Risultato` FOR EACH ROW
+BEGIN
+
+	declare counter int;
+    
+    select count(*)
+    from Composizione C
+    where NEW.esame = C.examID and NEW.parametro = C.parametro
+    into counter;
+    
+    if counter <> 1 then
+		signal sqlstate '45010' set message_text = "Parametro non previsto per tale esame.";
+	end if;
+    
+END$$
+
 
 DELIMITER ;
 SET SQL_MODE = '';
@@ -1349,8 +1451,8 @@ SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS;
 -- -----------------------------------------------------
 START TRANSACTION;
 USE `ASL_db`;
-INSERT INTO `ASL_db`.`Paziente` (`tessera_sanitaria`, `nome`, `cognome`, `indirizzo`, `dataN`, `luogoN`) VALUES ('A', 'Andrea', 'Pepe', 'Roma, Via v. Spurinna, 105', '1999-08-05', 'Cassino');
-INSERT INTO `ASL_db`.`Paziente` (`tessera_sanitaria`, `nome`, `cognome`, `indirizzo`, `dataN`, `luogoN`) VALUES ('B', 'De\'Aaron', 'Fox', 'Sacramento, Kings Street, 257', '1995-09-06', 'Washington');
+INSERT INTO `ASL_db`.`Paziente` (`tessera_sanitaria`, `nome`, `cognome`, `indirizzo`, `dataN`, `luogoN`) VALUES ('A', 'Amerigo', 'Vespucci', 'Madrid, Via delle Indie, 107', '1964-08-23', 'Barcellona');
+INSERT INTO `ASL_db`.`Paziente` (`tessera_sanitaria`, `nome`, `cognome`, `indirizzo`, `dataN`, `luogoN`) VALUES ('B', 'Boris', 'Diaw', 'Tolosa, Rue Eiffel, 12', '1986-10-04', 'Parigi');
 
 COMMIT;
 
@@ -1360,11 +1462,10 @@ COMMIT;
 -- -----------------------------------------------------
 START TRANSACTION;
 USE `ASL_db`;
-INSERT INTO `ASL_db`.`Esame` (`examID`, `descrizione`, `costo`) VALUES (1, 'TAC', 25.3);
-INSERT INTO `ASL_db`.`Esame` (`examID`, `descrizione`, `costo`) VALUES (2, 'Visita dermatologica', 120);
 INSERT INTO `ASL_db`.`Esame` (`examID`, `descrizione`, `costo`) VALUES (3, 'Emocromo', 35.8);
 INSERT INTO `ASL_db`.`Esame` (`examID`, `descrizione`, `costo`) VALUES (4, 'RX', 10.5);
-INSERT INTO `ASL_db`.`Esame` (`examID`, `descrizione`, `costo`) VALUES (5, 'Analisi del sangue', 12.80);
+INSERT INTO `ASL_db`.`Esame` (`examID`, `descrizione`, `costo`) VALUES (1, 'Analisi del sangue', 5.5);
+INSERT INTO `ASL_db`.`Esame` (`examID`, `descrizione`, `costo`) VALUES (2, 'Analisi delle urine', 12.35);
 
 COMMIT;
 
@@ -1381,6 +1482,7 @@ INSERT INTO `ASL_db`.`Parametro` (`nome`) VALUES ('Emoglobina');
 INSERT INTO `ASL_db`.`Parametro` (`nome`) VALUES ('Piastrine');
 INSERT INTO `ASL_db`.`Parametro` (`nome`) VALUES ('Linfociti');
 INSERT INTO `ASL_db`.`Parametro` (`nome`) VALUES ('Neutrofili');
+INSERT INTO `ASL_db`.`Parametro` (`nome`) VALUES ('GammaVC');
 
 COMMIT;
 
@@ -1390,10 +1492,9 @@ COMMIT;
 -- -----------------------------------------------------
 START TRANSACTION;
 USE `ASL_db`;
-INSERT INTO `ASL_db`.`Personale_anagrafica` (`CF`, `nome`, `cognome`, `indirizzo`, `tipo`, `associazione`) VALUES ('PPENDR99M05C034K', 'Andrea', 'Pepe', 'Roma, Via V. Spurinna, 105', 'medico', NULL);
-INSERT INTO `ASL_db`.`Personale_anagrafica` (`CF`, `nome`, `cognome`, `indirizzo`, `tipo`, `associazione`) VALUES ('123', 'Franco', 'Battiato', 'Verona, Via Roma, 789', 'volontario', 'Caritas');
-INSERT INTO `ASL_db`.`Personale_anagrafica` (`CF`, `nome`, `cognome`, `indirizzo`, `tipo`, `associazione`) VALUES ('def', 'Luigi', 'D. Maio', 'Caserta, Corso Migliaccio, 56', 'volontario', NULL);
-INSERT INTO `ASL_db`.`Personale_anagrafica` (`CF`, `nome`, `cognome`, `indirizzo`, `tipo`, `associazione`) VALUES ('abc', 'Giuseppi', 'Conte', 'Napoli, Via della Camorra, 58', 'primario', NULL);
+INSERT INTO `ASL_db`.`Personale_anagrafica` (`CF`, `nome`, `cognome`, `indirizzo`, `tipo`, `associazione`) VALUES ('A', 'Andrea', 'Pepe', 'Roma, Via V. Spurinna, 105', 'primario', NULL);
+INSERT INTO `ASL_db`.`Personale_anagrafica` (`CF`, `nome`, `cognome`, `indirizzo`, `tipo`, `associazione`) VALUES ('B', 'Bernardo', 'Silva', 'Torino, Via Giovanni XXIII, 24', 'volontario', 'UNICEF');
+INSERT INTO `ASL_db`.`Personale_anagrafica` (`CF`, `nome`, `cognome`, `indirizzo`, `tipo`, `associazione`) VALUES ('C', 'Carmelo', 'Bene', 'Napoli, Via Caracciolo, 256', 'primario', NULL);
 
 COMMIT;
 
@@ -1403,9 +1504,8 @@ COMMIT;
 -- -----------------------------------------------------
 START TRANSACTION;
 USE `ASL_db`;
-INSERT INTO `ASL_db`.`Ospedale` (`hospID`, `nome`, `indirizzo`, `primario`) VALUES (1, 'S. Pio', 'Benvento, Via 5 Maggio, 24', 'PPENDR99M05C034K');
-INSERT INTO `ASL_db`.`Ospedale` (`hospID`, `nome`, `indirizzo`, `primario`) VALUES (2, 'Gemelli', 'Roma, Via Mazzini, 43', 'abc');
-INSERT INTO `ASL_db`.`Ospedale` (`hospID`, `nome`, `indirizzo`, `primario`) VALUES (3, 'Spallanzani', 'Roma, Via Caligola, 897', 'abc');
+INSERT INTO `ASL_db`.`Ospedale` (`hospID`, `nome`, `indirizzo`, `primario`) VALUES (1, 'Gemelli', 'Roma, Via America, 23', 'A');
+INSERT INTO `ASL_db`.`Ospedale` (`hospID`, `nome`, `indirizzo`, `primario`) VALUES (2, 'Spallanzani', 'Roma, Via Caligola, 258', 'C');
 
 COMMIT;
 
@@ -1415,9 +1515,9 @@ COMMIT;
 -- -----------------------------------------------------
 START TRANSACTION;
 USE `ASL_db`;
-INSERT INTO `ASL_db`.`Laboratorio` (`hospID`, `labID`, `nome`, `piano`, `stanza`, `primario`) VALUES (1, 1, 'Esami istologici', 5, 'G7', 'PPENDR99M05C034K');
-INSERT INTO `ASL_db`.`Laboratorio` (`hospID`, `labID`, `nome`, `piano`, `stanza`, `primario`) VALUES (1, 3, 'Velo', 2, 'D4', 'abc');
-INSERT INTO `ASL_db`.`Laboratorio` (`hospID`, `labID`, `nome`, `piano`, `stanza`, `primario`) VALUES (3, 2, 'Analisi', 4, 'B6', 'abc');
+INSERT INTO `ASL_db`.`Laboratorio` (`hospID`, `labID`, `nome`, `piano`, `stanza`, `primario`) VALUES (1, 1, 'Analisi', 3, 'D5', 'C');
+INSERT INTO `ASL_db`.`Laboratorio` (`hospID`, `labID`, `nome`, `piano`, `stanza`, `primario`) VALUES (1, 2, 'Esami oncologici', 4, 'E3', 'C');
+INSERT INTO `ASL_db`.`Laboratorio` (`hospID`, `labID`, `nome`, `piano`, `stanza`, `primario`) VALUES (2, 1, 'Analisi', 2, 'S3', 'A');
 
 COMMIT;
 
@@ -1427,9 +1527,8 @@ COMMIT;
 -- -----------------------------------------------------
 START TRANSACTION;
 USE `ASL_db`;
-INSERT INTO `ASL_db`.`Esame_effettivo` (`examID`, `paziente`, `data`, `ora`, `urgenza`, `diagnosi`, `codiceP`, `laboratorio`, `ospedale`) VALUES (2, 'A', '2021-03-06', '12:05:00', 'si', NULL, 3, 2, 3);
-INSERT INTO `ASL_db`.`Esame_effettivo` (`examID`, `paziente`, `data`, `ora`, `urgenza`, `diagnosi`, `codiceP`, `laboratorio`, `ospedale`) VALUES (4, 'A', '2021-02-25', '17:30:00', 'si', NULL, 2, 1, 1);
-INSERT INTO `ASL_db`.`Esame_effettivo` (`examID`, `paziente`, `data`, `ora`, `urgenza`, `diagnosi`, `codiceP`, `laboratorio`, `ospedale`) VALUES (5, 'A', '2021-05-08', '08:35:00', 'no', NULL, 3, 1, 1);
+INSERT INTO `ASL_db`.`Esame_effettivo` (`examID`, `paziente`, `data`, `ora`, `urgenza`, `diagnosi`, `codiceP`, `laboratorio`, `ospedale`) VALUES (1, 'A', '2021-04-12', '12:30:00', 'si', NULL, 1, 1, 1);
+INSERT INTO `ASL_db`.`Esame_effettivo` (`examID`, `paziente`, `data`, `ora`, `urgenza`, `diagnosi`, `codiceP`, `laboratorio`, `ospedale`) VALUES (2, 'A', '2021-05-15', '13:22:00', 'no', NULL, 1, 1, 2);
 
 COMMIT;
 
@@ -1439,13 +1538,12 @@ COMMIT;
 -- -----------------------------------------------------
 START TRANSACTION;
 USE `ASL_db`;
-INSERT INTO `ASL_db`.`Composizione` (`examID`, `parametro`) VALUES (5, 'Emoglobina');
-INSERT INTO `ASL_db`.`Composizione` (`examID`, `parametro`) VALUES (5, 'Colesterolo');
-INSERT INTO `ASL_db`.`Composizione` (`examID`, `parametro`) VALUES (5, 'Piastrine');
-INSERT INTO `ASL_db`.`Composizione` (`examID`, `parametro`) VALUES (5, 'Transaminasi');
-INSERT INTO `ASL_db`.`Composizione` (`examID`, `parametro`) VALUES (5, 'Linfociti');
-INSERT INTO `ASL_db`.`Composizione` (`examID`, `parametro`) VALUES (5, 'MCV');
-INSERT INTO `ASL_db`.`Composizione` (`examID`, `parametro`) VALUES (5, 'Neutrofili');
+INSERT INTO `ASL_db`.`Composizione` (`examID`, `parametro`) VALUES (1, 'Colesterolo');
+INSERT INTO `ASL_db`.`Composizione` (`examID`, `parametro`) VALUES (2, 'GammaVC');
+INSERT INTO `ASL_db`.`Composizione` (`examID`, `parametro`) VALUES (1, 'Linfociti');
+INSERT INTO `ASL_db`.`Composizione` (`examID`, `parametro`) VALUES (2, 'Linfociti');
+INSERT INTO `ASL_db`.`Composizione` (`examID`, `parametro`) VALUES (1, 'Piastrine');
+INSERT INTO `ASL_db`.`Composizione` (`examID`, `parametro`) VALUES (1, 'Transaminasi');
 
 COMMIT;
 
@@ -1455,10 +1553,11 @@ COMMIT;
 -- -----------------------------------------------------
 START TRANSACTION;
 USE `ASL_db`;
-INSERT INTO `ASL_db`.`Reparto` (`hospID`, `repID`, `nome`, `tel`) VALUES (1, 2, 'Oncologia', '3457089956');
-INSERT INTO `ASL_db`.`Reparto` (`hospID`, `repID`, `nome`, `tel`) VALUES (1, 3, 'Pediatria', '1234567890');
-INSERT INTO `ASL_db`.`Reparto` (`hospID`, `repID`, `nome`, `tel`) VALUES (2, 4, 'Ginecologia', '3561203894');
-INSERT INTO `ASL_db`.`Reparto` (`hospID`, `repID`, `nome`, `tel`) VALUES (3, 1, 'Recovery', '9999999999');
+INSERT INTO `ASL_db`.`Reparto` (`hospID`, `repID`, `nome`, `tel`) VALUES (1, 1, 'Pediatria', '1234567890');
+INSERT INTO `ASL_db`.`Reparto` (`hospID`, `repID`, `nome`, `tel`) VALUES (1, 2, 'Cardiologia', '2345126897');
+INSERT INTO `ASL_db`.`Reparto` (`hospID`, `repID`, `nome`, `tel`) VALUES (1, 3, 'Radiologia', '1234589670');
+INSERT INTO `ASL_db`.`Reparto` (`hospID`, `repID`, `nome`, `tel`) VALUES (2, 1, 'Radiologia', '6734598722');
+INSERT INTO `ASL_db`.`Reparto` (`hospID`, `repID`, `nome`, `tel`) VALUES (2, 2, 'Oncologia', '4556677890');
 
 COMMIT;
 
@@ -1468,8 +1567,7 @@ COMMIT;
 -- -----------------------------------------------------
 START TRANSACTION;
 USE `ASL_db`;
-INSERT INTO `ASL_db`.`Svolgimento` (`esame`, `paziente`, `data`, `personale`) VALUES (2, 'A', '2021-03-06', 'PPENDR99M05C034K');
-INSERT INTO `ASL_db`.`Svolgimento` (`esame`, `paziente`, `data`, `personale`) VALUES (4, 'A', '2021-02-25', 'abc');
+INSERT INTO `ASL_db`.`Svolgimento` (`esame`, `paziente`, `data`, `personale`) VALUES (1, 'A', '2021-04-12', 'A');
 
 COMMIT;
 
@@ -1482,16 +1580,6 @@ USE `ASL_db`;
 INSERT INTO `ASL_db`.`Specializzazione` (`titolo`) VALUES ('Cardiologia');
 INSERT INTO `ASL_db`.`Specializzazione` (`titolo`) VALUES ('Pediatria');
 INSERT INTO `ASL_db`.`Specializzazione` (`titolo`) VALUES ('Medicina Sportiva');
-
-COMMIT;
-
-
--- -----------------------------------------------------
--- Data for table `ASL_db`.`Specializzato`
--- -----------------------------------------------------
-START TRANSACTION;
-USE `ASL_db`;
-INSERT INTO `ASL_db`.`Specializzato` (`primario`, `specializzazione`) VALUES ('abc', 'Cardiologia');
 
 COMMIT;
 
@@ -1512,7 +1600,9 @@ COMMIT;
 -- -----------------------------------------------------
 START TRANSACTION;
 USE `ASL_db`;
-INSERT INTO `ASL_db`.`Personale_dati_lavorativi` (`personale`) VALUES ('PPENDR99M05C034K');
+INSERT INTO `ASL_db`.`Personale_dati_lavorativi` (`personale`, `ospedale`, `reparto`) VALUES ('C', 1, 1);
+INSERT INTO `ASL_db`.`Personale_dati_lavorativi` (`personale`, `ospedale`, `reparto`) VALUES ('B', 1, 3);
+INSERT INTO `ASL_db`.`Personale_dati_lavorativi` (`personale`, `ospedale`, `reparto`) VALUES ('A', 2, 2);
 
 COMMIT;
 
@@ -1522,85 +1612,10 @@ COMMIT;
 -- -----------------------------------------------------
 START TRANSACTION;
 USE `ASL_db`;
-INSERT INTO `ASL_db`.`Risultato` (`esame`, `paziente`, `data`, `parametro`, `valore`) VALUES (5, 'A', '2021-05-08', 'Colesterolo', 215.57);
-INSERT INTO `ASL_db`.`Risultato` (`esame`, `paziente`, `data`, `parametro`, `valore`) VALUES (5, 'A', '2021-05-08', 'Emoglobina', 102.5);
-INSERT INTO `ASL_db`.`Risultato` (`esame`, `paziente`, `data`, `parametro`, `valore`) VALUES (5, 'A', '2021-05-08', 'MCV', 12.34);
+INSERT INTO `ASL_db`.`Risultato` (`esame`, `paziente`, `data`, `parametro`, `valore`) VALUES (1, 'A', '2021-04-12', 'Colesterolo', 156.23);
+INSERT INTO `ASL_db`.`Risultato` (`esame`, `paziente`, `data`, `parametro`, `valore`) VALUES (1, 'A', '2021-04-12', 'Piastrine', 45.78);
+INSERT INTO `ASL_db`.`Risultato` (`esame`, `paziente`, `data`, `parametro`, `valore`) VALUES (2, 'A', '2021-05-15', 'GammaVC', 206);
 
 COMMIT;
 
-USE `ASL_db`;
 
-DELIMITER $$
-
-USE `ASL_db`$$
-DROP TRIGGER IF EXISTS `ASL_db`.`Esame_effettivo_BEFORE_INSERT` $$
-USE `ASL_db`$$
-CREATE DEFINER = CURRENT_USER TRIGGER `ASL_db`.`Esame_effettivo_BEFORE_INSERT` BEFORE INSERT ON `Esame_effettivo` FOR EACH ROW
-BEGIN
-	if NEW.data < CURDATE() then
-		signal sqlstate '45007' set message_text = "A reservation in the past is not allowed!";
-	end if;
-END$$
-
-
-USE `ASL_db`$$
-DROP TRIGGER IF EXISTS `ASL_db`.`Esame_effettivo_BEFORE_DELETE` $$
-USE `ASL_db`$$
-CREATE DEFINER = CURRENT_USER TRIGGER `ASL_db`.`Esame_effettivo_BEFORE_DELETE` BEFORE DELETE ON `Esame_effettivo` FOR EACH ROW
-BEGIN
-	if OLD.data < current_date() then
-		signal sqlstate '45011' set message_text = "L'esame è già stato eseguito e non può essere rimosso";
-	end if;
-END$$
-
-
-USE `ASL_db`$$
-DROP TRIGGER IF EXISTS `ASL_db`.`Svolgimento_BEFORE_INSERT` $$
-USE `ASL_db`$$
-CREATE DEFINER = CURRENT_USER TRIGGER `ASL_db`.`Svolgimento_BEFORE_INSERT` BEFORE INSERT ON `Svolgimento` FOR EACH ROW
-BEGIN
-	if NEW.data < current_date() then
-		signal sqlstate '45008' set message_text = "Exam already executed";
-	end if;
-END$$
-
-
-USE `ASL_db`$$
-DROP TRIGGER IF EXISTS `ASL_db`.`Specializzato_BEFORE_INSERT` $$
-USE `ASL_db`$$
-CREATE DEFINER = CURRENT_USER TRIGGER `ASL_db`.`Specializzato_BEFORE_INSERT` BEFORE INSERT ON `Specializzato` FOR EACH ROW
-BEGIN
-	declare var_tipo enum('medico', 'primario', 'volontario');
-
-    select tipo
-    from Personale_anagrafica as P
-    where P.CF = NEW.primario
-    into var_tipo;
-
-    if var_tipo <> 'primario' then
-		signal sqlstate '45005' set message_text = "Il membro del personale indicato non è un primario.";
-	end if;
-END$$
-
-
-USE `ASL_db`$$
-DROP TRIGGER IF EXISTS `ASL_db`.`Risultato_BEFORE_INSERT` $$
-USE `ASL_db`$$
-CREATE DEFINER = CURRENT_USER TRIGGER `ASL_db`.`Risultato_BEFORE_INSERT` BEFORE INSERT ON `Risultato` FOR EACH ROW
-BEGIN
-
-	declare counter int;
-
-    select count(*)
-    from Composizione C
-    where NEW.esame = C.examID and NEW.parametro = C.parametro
-    into counter;
-
-    if counter <> 1 then
-		signal sqlstate '45010' set message_text = "Parametro non previsto per tale esame.";
-	end if;
-
-END$$
-
-
-DELIMITER ;
